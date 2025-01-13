@@ -3,8 +3,8 @@ bash /home/itai/research/linear_rep_geometry/setup.sh
 MODEL_PATHS=("meta-llama/Llama-3.2-3B-Instruct")
 DATASET_TYPES=("valuenet")
 CONCEPT_DIRECTIONS=("pos2neg")
-NORM_TYPES=("base" "norm_sentence_structure")
-PROMPT_TYPES=("explicit" "topic" "bare")
+NORM_TYPES=("base")
+PROMPT_TYPES=("bare")
 N_LAYERS=("12" "13" "14" "15" "16" "17" "18" "19" "20" "21" "22" "23" "24" "25" "26" "27" "28")
 
 for model_path in "${MODEL_PATHS[@]}"; do
@@ -21,7 +21,8 @@ for model_path in "${MODEL_PATHS[@]}"; do
                             --prompt_type $prompt_type \
                             --embedding_strategy "last" \
                             --target_layer $n_layer \
-                            --num_sample 1000
+                            --num_sample 1000 \
+                            --device_id 4
                     done
                 done
             done

@@ -9,6 +9,7 @@ import numpy as np
 import torch
 from torch import nn
 from tqdm import tqdm
+import bitsandbytes as bnb
 from transformers import AutoModelForCausalLM, AutoTokenizer, PreTrainedTokenizer
 
 PROMPT_TEMPLATES = {
@@ -570,6 +571,7 @@ def parse_args():
     parser.add_argument("--embedding_strategy", type=str, default="last")
     parser.add_argument("--target_layer", type=int, default=16)
     parser.add_argument("--num_sample", type=int, default=1000)
+    parser.add_argument("--device_id", type=int, default=0)
     return parser.parse_args()
 
 
@@ -582,7 +584,7 @@ if __name__ == "__main__":
     prompt_type = args.prompt_type
     embedding_strategy = args.embedding_strategy
     target_layer = int(args.target_layer)
-    device_id = 0
+    device_id = args.device_id
 
     # Basic config
     model_name = model_path.split("/")[1].lower()
@@ -608,7 +610,18 @@ if __name__ == "__main__":
 
     # Load model and tokenizer
     device = torch.device(f"cuda:{device_id}")
-    model = AutoModelForCausalLM.from_pretrained(model_path, device_map={"": device})
+    if "8B" in model_path:
+        print("!! Load model in fp8")
+        model = AutoModelForCausalLM.from_pretrained(
+        model_path,
+        device_map={"": device}),
+        load_in_8bit=True,  # fp8での読み込みを有効化
+        quantization_config=bnb.options.ServerConfig(
+            compress_statistics=True,
+            only_use_fp8=True  # fp8のみを使用
+        )
+    else:
+        model = AutoModelForCausalLM.from_pretrained(model_path, device_map={"": device})
     tokenizer = AutoTokenizer.from_pretrained(model_path, use_fast=False)
     tokenizer.pad_token = tokenizer.eos_token
 
@@ -650,6 +663,7 @@ if __name__ == "__main__":
 
     # Counterfactual pairの生成
     all_inner_product_LOO = []
+    all_concept_vectors = []
     concept_names = []
     for _, filename in enumerate(filenames):
         concept_name = get_concpet_name_from_filename(filename)
@@ -678,30 +692,31 @@ if __name__ == "__main__":
         concept_vector, diff_embeddings = get_concept_vector(
             base_embeddings, target_embeddings
         )
+        all_concept_vectors.append(concept_vector)
         concept_inner_product_LOO = compute_inner_product_LOO(diff_embeddings)
         all_inner_product_LOO.append(concept_inner_product_LOO)
 
         # generate text
-        save_generation_results(
-            pairs=random_pairs,
-            model=model,
-            tokenizer=tokenizer,
-            output_path=generation_random_output_path,
-            concept_name=concept_name,
-            prompt_type=prompt_type,
-            max_new_tokens=100,
-            batch_size=8,
-            max_save_step=1000,
-        )
+        # save_generation_results(
+        #     pairs=random_pairs,
+        #     model=model,
+        #     tokenizer=tokenizer,
+        #     output_path=generation_random_output_path,
+        #     concept_name=concept_name,
+        #     prompt_type=prompt_type,
+        #     max_new_tokens=100,
+        #     batch_size=8,
+        #     max_save_step=4,
+        # )
 
     # Save matrix
     inner_product_matrix_path = os.path.join(
-        inner_product_matrix_path, "all_inner_product_LOO.npy"
+        inner_product_matrix_path, "concept_vector.npy"
     )
     os.makedirs(os.path.dirname(inner_product_matrix_path), exist_ok=True)
     np.save(
         inner_product_matrix_path,
-        [inner_product.cpu().numpy() for inner_product in all_inner_product_LOO],
+        [concept_vector.cpu().numpy() for concept_vector in all_concept_vectors],
     )
 
     # Visualize LOO histograms
