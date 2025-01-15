@@ -4,12 +4,13 @@ import os
 import random
 import re
 
+import bitsandbytes as bnb
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
+from sklearn.decomposition import PCA
 from torch import nn
 from tqdm import tqdm
-import bitsandbytes as bnb
 from transformers import AutoModelForCausalLM, AutoTokenizer, PreTrainedTokenizer
 
 PROMPT_TEMPLATES = {
@@ -229,13 +230,13 @@ def get_hidden_layer_n(
                 )
                 hidden_states = outputs.hidden_states
                 layer_embeddings = hidden_states[n_layer]
-                last_hidden_state = layer_embeddings
+                layer_hidden_state = layer_embeddings
                 last_token_indices = attention_mask.sum(dim=1) - 1
-                batch_embeddings = last_hidden_state[
-                    torch.arange(last_hidden_state.size(0)), last_token_indices
+                batch_embeddings = layer_hidden_state[
+                    torch.arange(layer_hidden_state.size(0)), last_token_indices
                 ]
                 all_embeddings.append(batch_embeddings.cpu())
-                del outputs, hidden_states, layer_embeddings, last_hidden_state
+                del outputs, hidden_states, layer_embeddings, layer_hidden_state
         else:
             raise ValueError(
                 f"Invalid embedding_strategy: {embedding_strategy}. Available types: [mean, last]"
@@ -315,6 +316,31 @@ def compute_inner_product_LOO(diff_embeddings, verbose=False):
     return inner_product_LOO
 
 
+def apply_pca(embeddings, n_components=10):
+    """Apply PCA to reduce dimensions of embeddings."""
+    pca = PCA(n_components=n_components)
+    reduced_embeddings = pca.fit_transform(embeddings)
+    return torch.tensor(reduced_embeddings)
+
+
+def compute_inner_product_LOO_with_pca(reduced_diff_embeddings, verbose=False):
+    """Compute LOO with PCA-reduced embeddings."""
+    products = []
+    for i in range(reduced_diff_embeddings.shape[0]):
+        mask = torch.ones(
+            reduced_diff_embeddings.shape[0],
+            dtype=torch.bool,
+            device=reduced_diff_embeddings.device,
+        )
+        mask[i] = False
+        loo_diff_embeddings = reduced_diff_embeddings[mask]
+        mean_loo_diff_embeddings = torch.mean(loo_diff_embeddings, dim=0)
+        loo_mean = mean_loo_diff_embeddings / torch.norm(mean_loo_diff_embeddings)
+        product = torch.dot(loo_mean, reduced_diff_embeddings[i])
+        products.append(product.item())
+    return torch.tensor(products)
+
+
 def get_concept_vector(concept_embeddings, non_concept_emebeddings):
     """
     Args:
@@ -344,6 +370,7 @@ def show_histogram_LOO(
     save_dir: str,
     cols: int = 4,
     title_fontsize: int = 12,
+    is_pca: bool = False,
 ) -> None:
     """
     Visualize histograms comparing LOO (Leave-One-Out) analysis results between counterfactual pairs and random pairs.
@@ -420,6 +447,8 @@ def show_histogram_LOO(
     legend_ax.axis("off")
 
     # Save figure
+    if is_pca:
+        save_dir = os.path.join(save_dir, "pca")
     os.makedirs(save_dir, exist_ok=True)
     plt.savefig(
         os.path.join(save_dir, "concept_direction_LOO.png"),
@@ -588,9 +617,9 @@ if __name__ == "__main__":
 
     # Basic config
     model_name = model_path.split("/")[1].lower()
-    num_sample = 1000
+    num_sample = args.num_sample
     counterfactual_output_path = f"/home/itai/research/PersonalValuesGeometry/data/ValueNet/schwartz/{concept_direction}/{norm_type}"
-    analyzed_figure_path = f"/home/itai/research/PersonalValuesGeometry/figures/embeddings/{model_name}/layer{target_layer}/{dataset_type}/{concept_direction}/{norm_type}/{prompt_type}"
+    analyzed_figure_path = f"/home/itai/research/PersonalValuesGeometry/figures/embeddings/num_sumple_{num_sample}/{model_name}/layer{target_layer}/{dataset_type}/{concept_direction}/{norm_type}/{prompt_type}"
     generation_random_output_path = f"/home/itai/research/PersonalValuesGeometry/generated/embeddings/{model_name}/layer{target_layer}/{dataset_type}/{concept_direction}/{norm_type}/{prompt_type}/random.json"
     generation_counterfactual_output_path = f"/home/itai/research/PersonalValuesGeometry/generated/embeddings/{model_name}/layer{target_layer}/{dataset_type}/{concept_direction}/{norm_type}/{prompt_type}/counterfactual.json"
     random_txt_path = f"/home/itai/research/PersonalValuesGeometry/data/ValueNet/schwartz/random_pairs/{norm_type}/random_1000_pairs.txt"
@@ -612,16 +641,18 @@ if __name__ == "__main__":
     device = torch.device(f"cuda:{device_id}")
     if "8B" in model_path:
         print("!! Load model in fp8")
-        model = AutoModelForCausalLM.from_pretrained(
-        model_path,
-        device_map={"": device}),
-        load_in_8bit=True,  # fp8での読み込みを有効化
-        quantization_config=bnb.options.ServerConfig(
+        model = (
+            AutoModelForCausalLM.from_pretrained(model_path, device_map={"": device}),
+        )
+        load_in_8bit = (True,)  # fp8での読み込みを有効化
+        quantization_config = bnb.options.ServerConfig(
             compress_statistics=True,
-            only_use_fp8=True  # fp8のみを使用
+            only_use_fp8=True,  # fp8のみを使用
         )
     else:
-        model = AutoModelForCausalLM.from_pretrained(model_path, device_map={"": device})
+        model = AutoModelForCausalLM.from_pretrained(
+            model_path, device_map={"": device}
+        )
     tokenizer = AutoTokenizer.from_pretrained(model_path, use_fast=False)
     tokenizer.pad_token = tokenizer.eos_token
 
@@ -659,11 +690,20 @@ if __name__ == "__main__":
     random_vector, random_diff_embeddings = get_concept_vector(
         random_base_embeddings, random_target_embeddings
     )
+    # random_vector.shape: (hidden_size, )
+    # random_diff_embeddings.shape: (num_sample, hidden_size)
     random_inner_product_LOO = compute_inner_product_LOO(random_diff_embeddings)
+    reduced_random_diff_embeddings = apply_pca(random_diff_embeddings, n_components=10)
+    reduced_random_inner_product_LOO = compute_inner_product_LOO_with_pca(
+        reduced_random_diff_embeddings
+    )
 
     # Counterfactual pairの生成
     all_inner_product_LOO = []
-    all_concept_vectors = []
+    all_inner_product_LOO_with_pca = []
+    # all_concept_vectors = []
+    all_concept_diff_embeddings = []  # shape: (num_sample, hidden_size)
+    all_concept_reduced_diff_embeddings = []  # shape: (num_sample, n_components)
     concept_names = []
     for _, filename in enumerate(filenames):
         concept_name = get_concpet_name_from_filename(filename)
@@ -692,9 +732,19 @@ if __name__ == "__main__":
         concept_vector, diff_embeddings = get_concept_vector(
             base_embeddings, target_embeddings
         )
-        all_concept_vectors.append(concept_vector)
         concept_inner_product_LOO = compute_inner_product_LOO(diff_embeddings)
         all_inner_product_LOO.append(concept_inner_product_LOO)
+        all_concept_diff_embeddings.append(diff_embeddings)
+
+        # PCA
+        reduced_diff_embeddings = apply_pca(
+            diff_embeddings, n_components=10
+        )  # shape: (num_sample, n_components)
+        reduced_inner_product_LOO = compute_inner_product_LOO_with_pca(
+            reduced_diff_embeddings
+        )
+        all_inner_product_LOO_with_pca.append(reduced_inner_product_LOO)
+        all_concept_reduced_diff_embeddings.append(reduced_diff_embeddings)
 
         # generate text
         # save_generation_results(
@@ -709,15 +759,23 @@ if __name__ == "__main__":
         #     max_save_step=4,
         # )
 
-    # Save matrix
-    inner_product_matrix_path = os.path.join(
-        inner_product_matrix_path, "concept_vector.npy"
+    # Save Concept Direction Matrix
+    raw_inner_product_matrix_path = os.path.join(
+        inner_product_matrix_path, "raw/concept_diff_embeddings.npy"
     )
-    os.makedirs(os.path.dirname(inner_product_matrix_path), exist_ok=True)
-    np.save(
-        inner_product_matrix_path,
-        [concept_vector.cpu().numpy() for concept_vector in all_concept_vectors],
+    if not os.path.exists(raw_inner_product_matrix_path):
+        os.makedirs(os.path.dirname(raw_inner_product_matrix_path), exist_ok=True)
+    with open(raw_inner_product_matrix_path, 'wb') as f:
+        np.save(f, torch.stack(all_concept_diff_embeddings).cpu().numpy(), allow_pickle=True)
+
+    # Save PCA-reduced Concept Direction Matrix
+    reduced_inner_product_matrix_path = os.path.join(
+        inner_product_matrix_path, "pca/reduced_concept_diff_embeddings.npy"
     )
+    if not os.path.exists(reduced_inner_product_matrix_path):
+        os.makedirs(os.path.dirname(reduced_inner_product_matrix_path), exist_ok=True)
+    with open(reduced_inner_product_matrix_path, 'wb') as f:
+        np.save(f, torch.stack(all_concept_reduced_diff_embeddings).cpu().numpy(), allow_pickle=True)
 
     # Visualize LOO histograms
     show_histogram_LOO(
@@ -727,4 +785,16 @@ if __name__ == "__main__":
         save_dir=analyzed_figure_path,
         cols=4,
         title_fontsize=12,
+        is_pca=False,
+    )
+
+    # Visualize LOO histograms with PCA reduced embeddings
+    show_histogram_LOO(
+        all_inner_product_LOO=all_inner_product_LOO_with_pca,
+        random_inner_product_LOO=reduced_random_inner_product_LOO,
+        concept_names=concept_names,
+        save_dir=analyzed_figure_path,
+        cols=4,
+        title_fontsize=12,
+        is_pca=True,
     )

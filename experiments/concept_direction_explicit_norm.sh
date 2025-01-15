@@ -5,7 +5,7 @@ DATASET_TYPES=("valuenet")
 CONCEPT_DIRECTIONS=("pos2neg")
 NORM_TYPES=("norm_sentence_structure")
 PROMPT_TYPES=("explicit")
-N_LAYERS=("12" "13" "14" "15" "16" "17" "18" "19" "20" "21" "22" "23" "24" "25" "26" "27" "28")
+N_LAYERS=("1" "2" "3" "4" "5" "6" "7" "8" "9" "10" "11" "12" "13" "14" "15" "16" "17" "18" "19" "20" "21" "22" "23" "24" "25" "26" "27" "28")
 
 for model_path in "${MODEL_PATHS[@]}"; do
     for dataset_type in "${DATASET_TYPES[@]}"; do
@@ -13,7 +13,7 @@ for model_path in "${MODEL_PATHS[@]}"; do
             for norm_type in "${NORM_TYPES[@]}"; do
                 for prompt_type in "${PROMPT_TYPES[@]}"; do
                     for n_layer in "${N_LAYERS[@]}"; do
-                        python /home/itai/research/PersonalValuesGeometry/src/concept_vec_embedding.py \
+                        python /home/itai/research/PersonalValuesGeometry/src/concept_ica_vec_embedding.py \
                             --model_path $model_path \
                             --dataset_type $dataset_type \
                             --concept_direction $concept_direction \
@@ -21,7 +21,7 @@ for model_path in "${MODEL_PATHS[@]}"; do
                             --prompt_type $prompt_type \
                             --embedding_strategy "last" \
                             --target_layer $n_layer \
-                            --num_sample 1000 \
+                            --num_sample 5000 \
                             --device_id 1
                     done
                 done
