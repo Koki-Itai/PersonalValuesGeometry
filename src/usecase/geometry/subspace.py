@@ -23,10 +23,10 @@ class SubspaceAnalysis:
         ## Input Data
         self.llm_model_name = self.config.model_path.split("/")[1].lower()
         self.counterfactual_pairs_dataset_path = Path(
-            "data/ValueNet/schwartz"
+            "datasets/ValueNet/schwartz"
         ).joinpath(self.config.concept_direction_type, self.config.norm_type)
         self.random_pairs_dataset_path = Path(
-            "data/ValueNet/schwartz/random_pairs"
+            "datasets/ValueNet/schwartz/random_pairs"
         ).joinpath(
             self.config.norm_type,
             f"random_{self.config.num_sample_pairs_data}_pairs.json",
@@ -70,5 +70,5 @@ class SubspaceAnalysis:
 
         logger.info("*===== Args =====*")
         logger.info(f"Model: {self.config.model_path}")
-        
+
 
