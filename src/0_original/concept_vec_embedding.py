@@ -765,8 +765,10 @@ if __name__ == "__main__":
     )
     if not os.path.exists(raw_inner_product_matrix_path):
         os.makedirs(os.path.dirname(raw_inner_product_matrix_path), exist_ok=True)
-    with open(raw_inner_product_matrix_path, 'wb') as f:
-        np.save(f, torch.stack(all_concept_diff_embeddings).cpu().numpy(), allow_pickle=True)
+    with open(raw_inner_product_matrix_path, "wb") as f:
+        np.save(
+            f, torch.stack(all_concept_diff_embeddings).cpu().numpy(), allow_pickle=True
+        )
 
     # Save PCA-reduced Concept Direction Matrix
     reduced_inner_product_matrix_path = os.path.join(
@@ -774,8 +776,12 @@ if __name__ == "__main__":
     )
     if not os.path.exists(reduced_inner_product_matrix_path):
         os.makedirs(os.path.dirname(reduced_inner_product_matrix_path), exist_ok=True)
-    with open(reduced_inner_product_matrix_path, 'wb') as f:
-        np.save(f, torch.stack(all_concept_reduced_diff_embeddings).cpu().numpy(), allow_pickle=True)
+    with open(reduced_inner_product_matrix_path, "wb") as f:
+        np.save(
+            f,
+            torch.stack(all_concept_reduced_diff_embeddings).cpu().numpy(),
+            allow_pickle=True,
+        )
 
     # Visualize LOO histograms
     show_histogram_LOO(
