@@ -1,3 +1,3 @@
-from .data_model import DataModel
+from .data_model import CounterfactualPairsDataModel
 
-__all__ = ["DataModel"]
+__all__ = ["CounterfactualPairsDataModel"]

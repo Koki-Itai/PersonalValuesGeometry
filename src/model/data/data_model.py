@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 from pydantic import BaseModel, field_validator
 
 
-class DataModel(BaseModel, ABC):
+class CounterfactualPairsDataModel(BaseModel, ABC):
     sequence_pairs: list[list[str]]
     counterfactual_pairs: tuple[list[str], list[str]]
 

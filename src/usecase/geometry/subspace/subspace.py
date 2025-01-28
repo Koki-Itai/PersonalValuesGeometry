@@ -2,7 +2,7 @@ from pathlib import Path
 
 from config.geometry import GeometryExperimentsConfig
 from infrastructure.llm.llm import LLMService
-from model.data import DataModel
+from model.data import CounterfactualPairsDataModel
 from utils.logger import setup_logger
 
 logger = setup_logger(__name__)
@@ -13,7 +13,7 @@ class SubspaceAnalysis:
         self,
         llm_service: LLMService,
         config_model: GeometryExperimentsConfig,
-        data_model: DataModel,
+        data_model: CounterfactualPairsDataModel,
     ):
         self.llm_service = llm_service
         self.config = config_model
@@ -70,5 +70,3 @@ class SubspaceAnalysis:
 
         logger.info("*===== Args =====*")
         logger.info(f"Model: {self.config.model_path}")
-
-
