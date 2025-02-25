@@ -127,3 +127,6 @@ known-third-party = ["fastapi", "pydantic", "starlette"]
 [tool.ruff.lint.pyupgrade]
 # Python3.8互換のための設定
 keep-runtime-typing = true
+
+[tool.ruff]
+extend-include = ["*.ipynb"]

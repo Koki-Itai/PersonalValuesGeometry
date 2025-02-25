@@ -22,8 +22,7 @@ with open(
     filenames = [line.strip() for line in f.readlines()]
 concept_names = [get_concpet_name_from_filename(filename) for filename in filenames]
 
-
-num_layers = [i for i in range(22, 29)]
+num_layers = [i for i in range(12, 14)]
 sentence_structures = ["base", "norm_sentence_structure"]
 prompt_types = ["topic"]
 
@@ -64,6 +63,7 @@ for sentence_structure in sentence_structures:
                         mode="lines+markers+text",
                         text=[None, name],
                         textposition="top center",
+                        textfont=dict(size=16),  # ここで文字サイズを大きくする
                         marker=dict(size=8),
                         line=dict(color="rgba(50, 150, 250, 0.7)", width=2),
                     )
