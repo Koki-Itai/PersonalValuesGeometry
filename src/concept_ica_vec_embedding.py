@@ -30,6 +30,7 @@ def get_sequence_pairs(filepath: str, num_samples: int = 1000) -> list[list[str]
 
     if len(lines) > num_samples:
         lines = random.sample(lines, num_samples)
+    print(f"Number of samples {filepath}: {len(lines)}")
     pairs = [line.split("\t") for line in lines]
 
     return pairs
@@ -321,6 +322,7 @@ def apply_ica(embeddings, n_components=10):
     ica = FastICA(n_components=n_components)
     reduced_embeddings = ica.fit_transform(embeddings)
     return torch.tensor(reduced_embeddings)
+
 
 def compute_inner_product_LOO_with_ica(reduced_diff_embeddings, verbose=False):
     """Compute LOO with ICA-reduced embeddings."""
@@ -618,7 +620,7 @@ if __name__ == "__main__":
     model_name = model_path.split("/")[1].lower()
     num_sample = args.num_sample
     counterfactual_output_path = f"/home/itai/research/PersonalValuesGeometry/data/ValueNet/schwartz/{concept_direction}/{norm_type}"
-    analyzed_figure_path = f"/home/itai/research/PersonalValuesGeometry/figures/embeddings/num_sumple_{num_sample}/{model_name}/layer{target_layer}/{dataset_type}/{concept_direction}/{norm_type}/{prompt_type}"
+    analyzed_figure_path = f"/home/itai/research/PersonalValuesGeometry/experiments_results/embeddings/num_sumple_{num_sample}/{model_name}/layer{target_layer}/{dataset_type}/{concept_direction}/{norm_type}/{prompt_type}"
     generation_random_output_path = f"/home/itai/research/PersonalValuesGeometry/generated/embeddings/{model_name}/layer{target_layer}/{dataset_type}/{concept_direction}/{norm_type}/{prompt_type}/random.json"
     generation_counterfactual_output_path = f"/home/itai/research/PersonalValuesGeometry/generated/embeddings/{model_name}/layer{target_layer}/{dataset_type}/{concept_direction}/{norm_type}/{prompt_type}/counterfactual.json"
     random_txt_path = f"/home/itai/research/PersonalValuesGeometry/data/ValueNet/schwartz/random_pairs/{norm_type}/random_1000_pairs.txt"
@@ -764,8 +766,10 @@ if __name__ == "__main__":
     )
     if not os.path.exists(raw_inner_product_matrix_path):
         os.makedirs(os.path.dirname(raw_inner_product_matrix_path), exist_ok=True)
-    with open(raw_inner_product_matrix_path, 'wb') as f:
-        np.save(f, torch.stack(all_concept_diff_embeddings).cpu().numpy(), allow_pickle=True)
+    with open(raw_inner_product_matrix_path, "wb") as f:
+        np.save(
+            f, torch.stack(all_concept_diff_embeddings).cpu().numpy(), allow_pickle=True
+        )
 
     # Save ica-reduced Concept Direction Matrix
     reduced_inner_product_matrix_path = os.path.join(
@@ -773,8 +777,12 @@ if __name__ == "__main__":
     )
     if not os.path.exists(reduced_inner_product_matrix_path):
         os.makedirs(os.path.dirname(reduced_inner_product_matrix_path), exist_ok=True)
-    with open(reduced_inner_product_matrix_path, 'wb') as f:
-        np.save(f, torch.stack(all_concept_reduced_diff_embeddings).cpu().numpy(), allow_pickle=True)
+    with open(reduced_inner_product_matrix_path, "wb") as f:
+        np.save(
+            f,
+            torch.stack(all_concept_reduced_diff_embeddings).cpu().numpy(),
+            allow_pickle=True,
+        )
 
     # Visualize LOO histograms
     show_histogram_LOO(

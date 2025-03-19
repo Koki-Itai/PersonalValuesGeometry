@@ -13,8 +13,8 @@ def get_concpet_name_from_filename(filename: str):
     return concept_name
 
 
-all_inner_product_LOO_path = "/home/itai/research/PersonalValuesGeometry/matrices/llama-3.2-3b-instruct/layer17/valuenet/pos2neg/base/explicit/all_inner_product_LOO.npy"
-all_inner_product_LOO = np.load(all_inner_product_LOO_path)
+# all_inner_product_LOO_path = "/home/itai/research/PersonalValuesGeometry/matrices/llama-3.2-3b-instruct/layer17/valuenet/pos2neg/base/explicit/all_inner_product_LOO.npy"
+# all_inner_product_LOO = np.load(all_inner_product_LOO_path)
 
 with open(
     "/home/itai/research/PersonalValuesGeometry/experiments/counterfactual_pair.txt"
@@ -22,9 +22,9 @@ with open(
     filenames = [line.strip() for line in f.readlines()]
 concept_names = [get_concpet_name_from_filename(filename) for filename in filenames]
 
-num_layers = [i for i in range(12, 14)]
+num_layers = [i + 1 for i in range(0, 28)]
 sentence_structures = ["base", "norm_sentence_structure"]
-prompt_types = ["topic"]
+prompt_types = ["topic", "explicit", "topic"]
 
 for sentence_structure in sentence_structures:
     print(f"=== {sentence_structure} ===")
@@ -35,6 +35,7 @@ for sentence_structure in sentence_structures:
             all_concept_vectors_path = f"/home/itai/research/PersonalValuesGeometry/matrices/llama-3.2-3b-instruct/layer{i_layer}/valuenet/pos2neg/{sentence_structure}/{prompt_type}/concept_vector.npy"
             try:
                 all_concept_vectors = np.load(all_concept_vectors_path)
+                print(f"{all_concept_vectors.shape=}")
             except:
                 print(f"Could not find {all_concept_vectors_path}")
                 continue
@@ -63,7 +64,7 @@ for sentence_structure in sentence_structures:
                         mode="lines+markers+text",
                         text=[None, name],
                         textposition="top center",
-                        textfont=dict(size=16),  # ここで文字サイズを大きくする
+                        textfont=dict(size=16),
                         marker=dict(size=8),
                         line=dict(color="rgba(50, 150, 250, 0.7)", width=2),
                     )
@@ -89,7 +90,7 @@ for sentence_structure in sentence_structures:
                 template="plotly_white",
             )
 
-            fig.show()
+            # fig.show()
             save_path = f"/home/itai/research/PersonalValuesGeometry/figures/geometry/{sentence_structure}/{prompt_type}/layer_{i_layer}.png"
             os.makedirs(os.path.dirname(save_path), exist_ok=True)
             fig.write_image(save_path, format="png", scale=2)
